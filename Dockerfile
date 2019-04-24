@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends && \
   rm -rf /var/lib/apt/lists/*
 
-WORKDIR /rust/redis-microsvc/
+WORKDIR /rust/redis-microsvc
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./src ./src
@@ -38,4 +38,4 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /x86_64-unknown-linux-musl/release/redis-microsvc .
-CMD ["./app"]
+CMD ["./redis-microsvc"]

@@ -1,6 +1,6 @@
-use crate::share::common::AppState;
+use crate::model::AppState;
 use actix_web::HttpRequest;
 
 pub fn index(_req: &HttpRequest<AppState>) -> &'static str {
-    "home"
+    "Routes: GET: /, GET/POST: /feed, GET/PUT/DELETE: /feed/{id}"
 }

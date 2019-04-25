@@ -22,7 +22,7 @@ pub fn app_state() -> App<AppState> {
         .resource("/", |r| r.f(index))
         .configure(|app| {
             Cors::for_app(app)
-                .allowed_methods(vec!["GET", "POST"])
+                .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
                 .allowed_headers(vec![
                     header::AUTHORIZATION,
                     header::ACCEPT,

@@ -119,7 +119,6 @@ pub fn add_item(
         .responder()
 }
 
-//
 pub fn edit_item(
     (feed_item, req): (Json<FeedItemRequest>, HttpRequest<AppState>),
 ) -> impl Future<Item = HttpResponse, Error = AWError> {

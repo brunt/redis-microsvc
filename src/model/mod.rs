@@ -1,11 +1,4 @@
 use std::fmt;
-use actix_redis::RedisActor;
-use actix_web::actix::Addr;
-use std::sync::Arc;
-
-pub struct AppState {
-    pub redis_addr: Arc<Addr<RedisActor>>,
-}
 
 //as stored in redis, key is separate
 #[derive(Deserialize, Serialize)]
@@ -32,12 +25,8 @@ pub struct FeedItemResponse {
 }
 
 impl fmt::Display for FeedItem {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.write_fmt(format_args!(
-            "{}🤔{}🤔{}",
-            self.title, self.body, self.time
-        ))?;
-        Ok(())
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}🤔{}🤔{}", self.title, self.body, self.time)
     }
 }
 

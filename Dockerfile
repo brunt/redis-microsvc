@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /rust/redis-microsvc
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
+COPY ./openssl ./openssl
 COPY ./src ./src
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     ~/.cargo/bin/rustup target add x86_64-unknown-linux-musl && \
@@ -38,4 +39,5 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
 FROM alpine:latest
 WORKDIR /root/
 COPY --from=0 /x86_64-unknown-linux-musl/release/redis-microsvc .
+COPY --from=0 /rust/redis-microsvc/openssl ./openssl
 CMD ["./redis-microsvc"]

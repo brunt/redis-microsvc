@@ -12,6 +12,9 @@ Internally records are stored in Redis in a Hashmap with a GUID as the key and a
 * This API is using basic HTTP but there are [many other ways](https://github.com/actix/examples) Actix-web can be used
 
 ### Running locally
+Generate localhost.key and localhost.crt in the openssl folder by running
+`./makecert.sh`.
+
 Starting Redis via docker:
 
 `docker run --rm --name some-redis -p 6379:6379 -d redis`
@@ -27,11 +30,11 @@ Docker build & run:
 
 `docker build -t redis-microsvc:v0.1.0 .`
 
-`docker run --rm -p 8000:8000 -e REDIS_URL=... redis-microsvc:v0.1.0`
-
-Kubernetes helmcharts WIP
+`docker run --rm -p 8000:8000 -e REDIS_URL=host.docker.internal:6379 redis-microsvc:v0.1.0`
 
 ### HTTP endpoints:
+
+If using certs generated with openssl the calls will require https.
 
 POST **/feed** with some request like:
 ```json
@@ -39,6 +42,13 @@ POST **/feed** with some request like:
   "title": "some title idk",
   "body": "some data to be stored"
 }
+```
+
+This puts data in redis that can be seen with `hgetall`
+```127.0.0.1:6379> hgetall feeditems
+ 1) "6bc07307-3d70-11d4-a3d8-cb2ce9ac0869"
+ 2) "One strange October\xf0\x9f\xa4\x94Some message\xf0\x9f\xa4\x942019-08-03 23:37:58.433466200 +00:00"
+ 127.0.0.1:6379> 
 ```
 
 GET **/feed**

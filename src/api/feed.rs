@@ -12,7 +12,6 @@ pub fn get_item_by_id(
     redis: web::Data<Addr<RedisActor>>,
     req: web::Path<String>
 ) -> impl Future<Item = HttpResponse, Error = AWError> {
-//    let redis = req.state().redis_addr.clone();
     let id = req.to_owned();
     redis
         .send(Command(resp_array!["HGET", "feeditems", &id]))
@@ -24,7 +23,7 @@ pub fn get_item_by_id(
                     if elements.len() == 3 {
                         Ok(HttpResponse::Ok().content_type("application/json").json(
                             FeedItemResponse {
-                                id: id,
+                                id,
                                 title: elements[0].to_owned(),
                                 body: elements[1].to_owned(),
                                 time: elements[2].to_owned(),
@@ -97,7 +96,7 @@ pub fn add_item(
                 Ok(HttpResponse::Ok()
                     .content_type("application/json")
                     .json(FeedItemResponse {
-                        id: id,
+                        id,
                         title: item.title,
                         body: item.body,
                         time: item.time,
@@ -159,13 +158,13 @@ pub fn get_all_items(
             Ok(RespValue::Array(x)) => {
                 let mut out = FeedItemsResponse { items: Vec::new() };
                 for mut item in &x.into_iter().chunks(2) {
-                    let k = extract_id(item.next());
-                    let (a, b, c) = extract_values(item.next());
+                    let id = extract_id(item.next());
+                    let (title, body, time) = extract_values(item.next());
                     let f = FeedItemResponse {
-                        id: k,
-                        title: a,
-                        body: b,
-                        time: c,
+                        id,
+                        title,
+                        body,
+                        time,
                     };
                     out.items.push(f);
                 }
@@ -205,4 +204,64 @@ fn extract_values(input: Option<RespValue>) -> (String, String, String) {
         }
     }
     ("".to_string(), "".to_string(), "".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_extract_values(){
+        let input = Some(RespValue::BulkString("one🤔two🤔three".as_bytes().to_vec()));
+        let output = extract_values(input);
+        assert_eq!(output.0, "one".to_string());
+        assert_eq!(output.1, "two".to_string());
+        assert_eq!(output.2, "three".to_string());
+
+        let input = Some(RespValue::BulkString("something".as_bytes().to_vec()));
+        let output = extract_values(input);
+        assert_eq!(output.0, "".to_string());
+        assert_eq!(output.1, "".to_string());
+        assert_eq!(output.2, "".to_string());
+
+        let input = Some(RespValue::Array(vec!(RespValue::BulkString("something".as_bytes().to_vec()))));
+        let output = extract_values(input);
+        assert_eq!(output.0, "".to_string());
+        assert_eq!(output.1, "".to_string());
+        assert_eq!(output.2, "".to_string());
+
+        let input = Some(RespValue::Error("error".to_string()));
+        let output = extract_values(input);
+        assert_eq!(output.0, "".to_string());
+        assert_eq!(output.1, "".to_string());
+        assert_eq!(output.2, "".to_string());
+
+        let input = None;
+        let output = extract_values(input);
+        assert_eq!(output.0, "".to_string());
+        assert_eq!(output.1, "".to_string());
+        assert_eq!(output.2, "".to_string());
+
+    }
+
+    #[test]
+    fn test_extract_id(){
+        let input = Some(RespValue::BulkString("an id".as_bytes().to_vec()));
+        let output = extract_id(input);
+        assert_eq!(output, "an id".to_string());
+
+
+        let input = None;
+        let output = extract_id(input);
+        assert_eq!(output, "".to_string());
+
+
+        let input = Some(RespValue::Error("error".to_string()));
+        let output = extract_id(input);
+        assert_eq!(output, "".to_string());
+
+
+        let input = Some(RespValue::Array(vec!(RespValue::BulkString("something".as_bytes().to_vec()))));
+        let output = extract_id(input);
+        assert_eq!(output, "".to_string());
+    }
 }

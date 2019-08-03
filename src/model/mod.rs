@@ -32,7 +32,7 @@ impl fmt::Display for FeedItem {
 
 impl PartialEq for FeedItem {
     fn eq(&self, other: &FeedItem) -> bool {
-        return self.title == other.title && self.body == other.body && self.time == other.time;
+        self.title == other.title && self.body == other.body && self.time == other.time
     }
 }
 

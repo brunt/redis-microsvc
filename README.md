@@ -1,7 +1,8 @@
 # Redis Microservice REST API
 
-This is an example of using [Actix-web](https://crates.io/crates/actix-web) and [Redis](http://redis.io) as a restful json datastore.
-Internally records are stored in Redis in a Hashmap with a GUID as the key and all record values as emoji-separated values in a binary-safe string.
+This is an example of using [Actix-web](https://crates.io/crates/actix-web) and [Redis](http://redis.io) as a restful json datastore for a generic news feed.
+Internally records are stored in Redis in a Hashmap with a GUID as the key and all record values as 🤔 emoji-separated values in a binary-safe string.
+
 
 ### Cool things
 * Redis is [fast](https://redis.io/topics/benchmarks).
@@ -45,9 +46,10 @@ POST **/feed** with some request like:
 ```
 
 This puts data in redis that can be seen with `hgetall`
-```127.0.0.1:6379> hgetall feeditems
+```
+ 127.0.0.1:6379> hgetall feeditems
  1) "6bc07307-3d70-11d4-a3d8-cb2ce9ac0869"
- 2) "One strange October\xf0\x9f\xa4\x94Some message\xf0\x9f\xa4\x942019-08-03 23:37:58.433466200 +00:00"
+ 2) "some title idk\xf0\x9f\xa4\x94some data to be stored\xf0\x9f\xa4\x942019-08-03 23:37:58.433466200 +00:00"
  127.0.0.1:6379> 
 ```
 

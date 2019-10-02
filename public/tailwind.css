@@ -1,0 +1,8 @@
+@tailwind base;
+
+@tailwind components;
+
+@tailwind utilities;
+
+/* npx tailwind build styles.css -o styles.css */
+/* purgecss --css styles.css --content index.html */

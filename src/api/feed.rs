@@ -1,16 +1,18 @@
 use crate::model::{FeedItem, FeedItemRequest, FeedItemResponse, FeedItemsResponse};
-use actix::{Addr};
+use actix::Addr;
 use actix_redis::{Command, Error as ARError, RedisActor};
 use actix_web::{web, Error as AWError, HttpResponse};
 use chrono::Local;
 use futures::Future;
 use guid_create::GUID;
 use itertools::Itertools;
+use log::error;
 use redis_async::resp::RespValue;
+use redis_async::resp_array;
 
 pub fn get_item_by_id(
     redis: web::Data<Addr<RedisActor>>,
-    req: web::Path<String>
+    req: web::Path<String>,
 ) -> impl Future<Item = HttpResponse, Error = AWError> {
     let id = req.to_owned();
     redis
@@ -74,7 +76,7 @@ pub fn delete_item_by_id(
 
 pub fn add_item(
     feed_item: web::Json<FeedItemRequest>,
-    redis: web::Data<Addr<RedisActor>>
+    redis: web::Data<Addr<RedisActor>>,
 ) -> impl Future<Item = HttpResponse, Error = AWError> {
     let feed_item_req = feed_item.into_inner();
     let item = FeedItem {
@@ -112,7 +114,7 @@ pub fn add_item(
 pub fn edit_item(
     feed_item: web::Json<FeedItemRequest>,
     redis: web::Data<Addr<RedisActor>>,
-    req: web::Path<String>
+    req: web::Path<String>,
 ) -> impl Future<Item = HttpResponse, Error = AWError> {
     let feed_item_req = feed_item.into_inner();
     let item = FeedItem {
@@ -210,7 +212,7 @@ fn extract_values(input: Option<RespValue>) -> (String, String, String) {
 mod tests {
     use super::*;
     #[test]
-    fn test_extract_values(){
+    fn test_extract_values() {
         let input = Some(RespValue::BulkString("one🤔two🤔three".as_bytes().to_vec()));
         let output = extract_values(input);
         assert_eq!(output.0, "one".to_string());
@@ -223,7 +225,9 @@ mod tests {
         assert_eq!(output.1, "".to_string());
         assert_eq!(output.2, "".to_string());
 
-        let input = Some(RespValue::Array(vec!(RespValue::BulkString("something".as_bytes().to_vec()))));
+        let input = Some(RespValue::Array(vec![RespValue::BulkString(
+            "something".as_bytes().to_vec(),
+        )]));
         let output = extract_values(input);
         assert_eq!(output.0, "".to_string());
         assert_eq!(output.1, "".to_string());
@@ -240,27 +244,25 @@ mod tests {
         assert_eq!(output.0, "".to_string());
         assert_eq!(output.1, "".to_string());
         assert_eq!(output.2, "".to_string());
-
     }
 
     #[test]
-    fn test_extract_id(){
+    fn test_extract_id() {
         let input = Some(RespValue::BulkString("an id".as_bytes().to_vec()));
         let output = extract_id(input);
         assert_eq!(output, "an id".to_string());
 
-
         let input = None;
         let output = extract_id(input);
         assert_eq!(output, "".to_string());
-
 
         let input = Some(RespValue::Error("error".to_string()));
         let output = extract_id(input);
         assert_eq!(output, "".to_string());
 
-
-        let input = Some(RespValue::Array(vec!(RespValue::BulkString("something".as_bytes().to_vec()))));
+        let input = Some(RespValue::Array(vec![RespValue::BulkString(
+            "something".as_bytes().to_vec(),
+        )]));
         let output = extract_id(input);
         assert_eq!(output, "".to_string());
     }

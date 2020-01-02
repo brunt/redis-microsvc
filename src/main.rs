@@ -11,10 +11,11 @@ use std::io::BufReader;
 mod api;
 mod model;
 
-use api::feed::{add_item, delete_item_by_id, edit_item, get_all_items, get_item_by_id};
-use api::home::{dist, index};
+use crate::api::feed::{add_item, delete_item_by_id, edit_item, get_all_items, get_item_by_id};
+use crate::api::home::{dist, index};
 
-fn main() -> std::io::Result<()> {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     let port = env::var("PORT").unwrap_or_else(|_| {
         println!("using default port 8000");
         "8000".to_string()
@@ -41,18 +42,19 @@ fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(
                 web::resource("/feed")
-                    .route(web::post().to_async(add_item))
-                    .route(web::get().to_async(get_all_items)),
+                    .route(web::post().to(add_item))
+                    .route(web::get().to(get_all_items)),
             )
             .service(
                 web::resource("/feed/{id}")
-                    .route(web::get().to_async(get_item_by_id))
-                    .route(web::put().to_async(edit_item))
-                    .route(web::delete().to_async(delete_item_by_id)),
+                    .route(web::get().to(get_item_by_id))
+                    .route(web::put().to(edit_item))
+                    .route(web::delete().to(delete_item_by_id)),
             )
             .service(web::resource("/").route(web::get().to(index)))
             .service(web::resource("{_:.*}").route(web::get().to(dist)))
     })
     .bind_rustls(format!("0.0.0.0:{}", port), config)?
     .run()
+    .await
 }

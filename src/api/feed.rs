@@ -1,83 +1,98 @@
 use crate::model::{FeedItem, FeedItemRequest, FeedItemResponse, FeedItemsResponse};
 use actix::Addr;
-use actix_redis::{Command, Error as ARError, RedisActor};
-use actix_web::{web, Error as AWError, HttpResponse};
+use actix_redis::{Command, RedisActor};
+use actix_web::{web, HttpResponse};
 use chrono::Local;
-use futures::Future;
 use guid_create::GUID;
 use itertools::Itertools;
-use log::error;
+use log::{error, info};
 use redis_async::resp::RespValue;
 use redis_async::resp_array;
 
-pub fn get_item_by_id(
+pub async fn get_item_by_id(
     redis: web::Data<Addr<RedisActor>>,
     req: web::Path<String>,
-) -> impl Future<Item = HttpResponse, Error = AWError> {
+) -> HttpResponse {
     let id = req.to_owned();
-    redis
+    let res = redis
         .send(Command(resp_array!["HGET", "feeditems", &id]))
-        .map_err(AWError::from)
-        .and_then(move |res: Result<RespValue, ARError>| match res {
-            Ok(RespValue::BulkString(x)) => {
-                if let Ok(s) = String::from_utf8(x) {
+        .await;
+    match res {
+        Err(e) => {
+            println!("actix error happened: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+        Ok(rr) => match rr {
+            Err(e) => {
+                println!("error happened: {}", e);
+                HttpResponse::InternalServerError().finish()
+            }
+            Ok(RespValue::Nil) => HttpResponse::NotFound()
+                .content_type("text/plain")
+                .body("no record found with that ID"),
+            Ok(RespValue::BulkString(x)) => match String::from_utf8(x) {
+                Err(e) => {
+                    println!("error happened: {}", e);
+                    HttpResponse::NotFound()
+                        .content_type("text/plain")
+                        .body("not found")
+                }
+                Ok(s) => {
                     let elements: Vec<String> = s.split("🤔").map(|s| s.to_string()).collect();
                     if elements.len() == 3 {
-                        Ok(HttpResponse::Ok().content_type("application/json").json(
-                            FeedItemResponse {
+                        HttpResponse::Ok()
+                            .content_type("application/json")
+                            .json(FeedItemResponse {
                                 id,
                                 title: elements[0].to_owned(),
                                 body: elements[1].to_owned(),
                                 time: elements[2].to_owned(),
-                            },
-                        ))
+                            })
                     } else {
-                        Ok(HttpResponse::InternalServerError()
-                            .content_type("text/plain")
-                            .body("something weird happened"))
+                        println!(
+                            "incorrect number of elements returned in result: {}",
+                            elements.len()
+                        );
+                        HttpResponse::InternalServerError().finish()
                     }
-                } else {
-                    Ok(HttpResponse::Ok()
-                        .content_type("text/plain")
-                        .body("not found"))
                 }
-            }
-            Ok(RespValue::Nil) => Ok(HttpResponse::NotFound()
-                .content_type("text/plain")
-                .body("No record found with that id")),
+            },
             _ => {
-                error!("--->{:?}", res);
-                Ok(HttpResponse::InternalServerError().finish())
+                println!("{:?}", rr);
+                HttpResponse::InternalServerError().finish()
             }
-        })
+        },
+    }
 }
 
-pub fn delete_item_by_id(
+pub async fn delete_item_by_id(
     redis: web::Data<Addr<RedisActor>>,
     req: web::Path<String>,
-) -> impl Future<Item = HttpResponse, Error = AWError> {
+) -> HttpResponse {
     let id = req.to_string();
-    redis
+    println!("deleting id {}", &id);
+    let res = redis
         .send(Command(resp_array!["HDEL", "feeditems", &id]))
-        .map_err(AWError::from)
-        .and_then(move |res: Result<RespValue, ARError>| match res {
-            Ok(RespValue::Integer(x)) => Ok(HttpResponse::Ok()
+        .await;
+    match res {
+        Err(e) => {
+            println!("actix error happened: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+        Ok(rr) => match rr {
+            Ok(RespValue::Nil) => HttpResponse::NotFound()
                 .content_type("text/plain")
-                .body(x.to_string())),
-            Ok(RespValue::Nil) => Ok(HttpResponse::NotFound()
-                .content_type("text/plain")
-                .body("No record found with that id")),
-            _ => {
-                error!("--->{:?}", res);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
-        })
+                .body("No record found with that ID"),
+            Ok(RespValue::Integer(x)) => HttpResponse::Ok().body(x.to_string()),
+            _ => HttpResponse::InternalServerError().finish(),
+        },
+    }
 }
 
-pub fn add_item(
+pub async fn add_item(
     feed_item: web::Json<FeedItemRequest>,
     redis: web::Data<Addr<RedisActor>>,
-) -> impl Future<Item = HttpResponse, Error = AWError> {
+) -> HttpResponse {
     let feed_item_req = feed_item.into_inner();
     let item = FeedItem {
         title: feed_item_req.title.clone(),
@@ -85,37 +100,41 @@ pub fn add_item(
         time: Local::now().to_string(),
     };
     let id = GUID::rand().to_string().to_lowercase();
-    redis
-        .send(Command(resp_array![
+    let res = redis
+        .send(Command(resp_array!(
             "HSET",
             "feeditems",
             &id,
             &item.to_string()
-        ]))
-        .map_err(AWError::from)
-        .and_then(move |res: Result<RespValue, ARError>| match res {
-            Ok(_) => {
-                Ok(HttpResponse::Ok()
-                    .content_type("application/json")
-                    .json(FeedItemResponse {
-                        id,
-                        title: item.title,
-                        body: item.body,
-                        time: item.time,
-                    }))
-            }
+        )))
+        .await;
+    match res {
+        Err(e) => {
+            println!("actix error happened: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+        Ok(rr) => match rr {
+            Ok(_) => HttpResponse::Ok()
+                .content_type("application/json")
+                .json(FeedItemResponse {
+                    id,
+                    title: item.title,
+                    body: item.body,
+                    time: item.time,
+                }),
             _ => {
-                error!("--->{:?}", res);
-                Ok(HttpResponse::InternalServerError().finish())
+                println!("{:?}", rr);
+                HttpResponse::InternalServerError().finish()
             }
-        })
+        },
+    }
 }
 
-pub fn edit_item(
+pub async fn edit_item(
     feed_item: web::Json<FeedItemRequest>,
     redis: web::Data<Addr<RedisActor>>,
     req: web::Path<String>,
-) -> impl Future<Item = HttpResponse, Error = AWError> {
+) -> HttpResponse {
     let feed_item_req = feed_item.into_inner();
     let item = FeedItem {
         title: feed_item_req.title.clone(),
@@ -124,39 +143,47 @@ pub fn edit_item(
     };
     //the framework returns 404 when path variable is missing so this is fine
     let id = req.to_string().to_lowercase();
-    redis
-        .send(Command(resp_array![
+    let res = redis
+        .send(Command(resp_array!(
             "HSET",
             "feeditems",
             &id,
             &item.to_string()
-        ]))
-        .map_err(AWError::from)
-        .and_then(move |res: Result<RespValue, ARError>| match res {
-            Ok(_) => {
-                Ok(HttpResponse::Ok()
-                    .content_type("application/json")
-                    .json(FeedItemResponse {
-                        id: id.to_string(),
-                        title: item.title,
-                        body: item.body,
-                        time: item.time,
-                    }))
-            }
+        )))
+        .await;
+
+    match res {
+        Err(e) => {
+            println!("actix error happened: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+        Ok(rr) => match rr {
+            Ok(_) => HttpResponse::Ok()
+                .content_type("application/json")
+                .json(FeedItemResponse {
+                    id,
+                    title: item.title,
+                    body: item.body,
+                    time: item.time,
+                }),
             _ => {
-                error!("--->{:?}", res);
-                Ok(HttpResponse::InternalServerError().finish())
+                println!("{:?}", rr);
+                HttpResponse::InternalServerError().finish()
             }
-        })
+        },
+    }
 }
 
-pub fn get_all_items(
-    redis: web::Data<Addr<RedisActor>>,
-) -> impl Future<Item = HttpResponse, Error = AWError> {
-    redis
+pub async fn get_all_items(redis: web::Data<Addr<RedisActor>>) -> HttpResponse {
+    let res = redis
         .send(Command(resp_array!["HGETALL", "feeditems"]))
-        .map_err(AWError::from)
-        .and_then(move |res: Result<RespValue, ARError>| match res {
+        .await;
+    match res {
+        Err(e) => {
+            println!("actix error happened: {}", e);
+            HttpResponse::InternalServerError().finish()
+        }
+        Ok(rr) => match rr {
             Ok(RespValue::Array(x)) => {
                 let mut out = FeedItemsResponse { items: Vec::new() };
                 for mut item in &x.into_iter().chunks(2) {
@@ -170,16 +197,18 @@ pub fn get_all_items(
                     };
                     out.items.push(f);
                 }
-                Ok(HttpResponse::Ok()
+                HttpResponse::Ok()
                     .content_type("application/json")
-                    .json(out))
+                    .json(out)
             }
-            Err(_e) => Ok(HttpResponse::InternalServerError().finish()),
-            _ => {
-                println!("--->{:?}", res);
-                Ok(HttpResponse::InternalServerError().finish())
-            }
-        })
+            Ok(RespValue::Nil) => {
+                HttpResponse::Ok().json(FeedItemsResponse{
+                    items: Vec::new()
+                })
+            },
+            _ => HttpResponse::InternalServerError().finish(),
+        },
+    }
 }
 
 //TODO: proper error handling and bounds checking

@@ -19,12 +19,12 @@ pub async fn get_item_by_id(
         .await;
     match res {
         Err(e) => {
-            println!("actix error happened: {}", e);
+            println!("actix error happened: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
         Ok(rr) => match rr {
             Err(e) => {
-                println!("error happened: {}", e);
+                println!("error happened: {:?}", e);
                 HttpResponse::InternalServerError().finish()
             }
             Ok(RespValue::Nil) => HttpResponse::NotFound()
@@ -76,7 +76,7 @@ pub async fn delete_item_by_id(
         .await;
     match res {
         Err(e) => {
-            println!("actix error happened: {}", e);
+            println!("actix error happened: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
         Ok(rr) => match rr {
@@ -110,7 +110,7 @@ pub async fn add_item(
         .await;
     match res {
         Err(e) => {
-            println!("actix error happened: {}", e);
+            println!("actix error happened: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
         Ok(rr) => match rr {
@@ -154,7 +154,7 @@ pub async fn edit_item(
 
     match res {
         Err(e) => {
-            println!("actix error happened: {}", e);
+            println!("actix error happened: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
         Ok(rr) => match rr {
@@ -180,7 +180,7 @@ pub async fn get_all_items(redis: web::Data<Addr<RedisActor>>) -> HttpResponse {
         .await;
     match res {
         Err(e) => {
-            println!("actix error happened: {}", e);
+            println!("actix error happened: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
         Ok(rr) => match rr {
@@ -201,11 +201,7 @@ pub async fn get_all_items(redis: web::Data<Addr<RedisActor>>) -> HttpResponse {
                     .content_type("application/json")
                     .json(out)
             }
-            Ok(RespValue::Nil) => {
-                HttpResponse::Ok().json(FeedItemsResponse{
-                    items: Vec::new()
-                })
-            },
+            Ok(RespValue::Nil) => HttpResponse::Ok().json(FeedItemsResponse { items: Vec::new() }),
             _ => HttpResponse::InternalServerError().finish(),
         },
     }

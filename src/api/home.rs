@@ -1,4 +1,4 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{get, web, HttpResponse};
 use mime_guess::from_path;
 use std::borrow::Cow;
 
@@ -6,7 +6,8 @@ use std::borrow::Cow;
 #[folder = "public/"]
 struct Asset;
 
-pub fn index() -> HttpResponse {
+#[get("/")]
+pub async fn index() -> HttpResponse {
     handle_embedded_file("index.html")
 }
 
@@ -25,7 +26,7 @@ fn handle_embedded_file(path: &str) -> HttpResponse {
     }
 }
 
-pub fn dist(req: web::HttpRequest) -> HttpResponse {
-    let path = &req.path()["/".len()..];
-    handle_embedded_file(path)
+#[get("/dist/{_:.*}")]
+pub async fn dist(path: web::Path<String>) -> HttpResponse {
+    handle_embedded_file(&path.0)
 }

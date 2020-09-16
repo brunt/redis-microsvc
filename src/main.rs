@@ -2,6 +2,7 @@
 extern crate rust_embed;
 use actix_redis::RedisActor;
 use actix_web::{middleware, web, App, HttpServer};
+use actix_web_prom::PrometheusMetrics;
 use rustls::internal::pemfile::{certs, rsa_private_keys};
 use rustls::{NoClientAuth, ServerConfig};
 use std::env;
@@ -14,7 +15,7 @@ mod model;
 use crate::api::feed::{add_item, delete_item_by_id, edit_item, get_all_items, get_item_by_id};
 use crate::api::home::{dist, index};
 
-#[actix_rt::main]
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let port = env::var("PORT").unwrap_or_else(|_| {
         println!("using default port 8000");
@@ -35,11 +36,14 @@ async fn main() -> std::io::Result<()> {
         "localhost:6379".to_string()
     });
 
+    let prometheus = PrometheusMetrics::new("microsvc", Some("/metrics"), None);
+
     HttpServer::new(move || {
         let r = RedisActor::start(redis_url.clone());
         App::new()
             .data(r)
             .wrap(middleware::Logger::default())
+            .wrap(prometheus.clone())
             .service(
                 web::resource("/feed")
                     .route(web::post().to(add_item))
@@ -51,8 +55,8 @@ async fn main() -> std::io::Result<()> {
                     .route(web::put().to(edit_item))
                     .route(web::delete().to(delete_item_by_id)),
             )
-            .service(web::resource("/").route(web::get().to(index)))
-            .service(web::resource("{_:.*}").route(web::get().to(dist)))
+            .service(index)
+            .service(dist)
     })
     .bind_rustls(format!("0.0.0.0:{}", port), config)?
     .run()
